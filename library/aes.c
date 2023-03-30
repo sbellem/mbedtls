@@ -543,6 +543,8 @@ int mbedtls_aes_setkey_enc( mbedtls_aes_context *ctx, const unsigned char *key,
 #if defined(MBEDTLS_AESNI_C) && defined(MBEDTLS_HAVE_X86_64)
     if( mbedtls_aesni_has_support( MBEDTLS_AESNI_AES ) )
         return( mbedtls_aesni_setkey_enc( (unsigned char *) RK, key, keybits ) );
+    else
+        return( MBEDTLS_ERR_PLATFORM_FEATURE_UNSUPPORTED );
 #endif
 
     for( i = 0; i < ( keybits >> 5 ); i++ )
@@ -652,6 +654,11 @@ int mbedtls_aes_setkey_dec( mbedtls_aes_context *ctx, const unsigned char *key,
     {
         mbedtls_aesni_inverse_key( (unsigned char *) RK,
                            (const unsigned char *) ( cty.buf + cty.rk_offset ), ctx->nr );
+        goto exit;
+    }
+    else
+    {
+        ret = MBEDTLS_ERR_PLATFORM_FEATURE_UNSUPPORTED;
         goto exit;
     }
 #endif
@@ -947,6 +954,8 @@ int mbedtls_aes_crypt_ecb( mbedtls_aes_context *ctx,
 #if defined(MBEDTLS_AESNI_C) && defined(MBEDTLS_HAVE_X86_64)
     if( mbedtls_aesni_has_support( MBEDTLS_AESNI_AES ) )
         return( mbedtls_aesni_crypt_ecb( ctx, mode, input, output ) );
+    else
+        return( MBEDTLS_ERR_PLATFORM_FEATURE_UNSUPPORTED );
 #endif
 
 #if defined(MBEDTLS_PADLOCK_C) && defined(MBEDTLS_HAVE_X86)

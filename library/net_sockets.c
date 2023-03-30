@@ -88,6 +88,7 @@ static int wsa_init_done = 0;
 #include <fcntl.h>
 #include <netdb.h>
 #include <errno.h>
+#include <sys/syscall.h>
 
 #define IS_EINTR( ret ) ( ( ret ) == EINTR )
 
@@ -311,7 +312,7 @@ static int net_would_block( const mbedtls_net_context *ctx )
     /*
      * Never return 'WOULD BLOCK' on a blocking socket
      */
-    if( ( fcntl( ctx->fd, F_GETFL ) & O_NONBLOCK ) != O_NONBLOCK )
+    if( ( syscall( SYS_fcntl, ctx->fd, F_GETFL ) & O_NONBLOCK ) != O_NONBLOCK )
     {
         errno = err;
         return( 0 );
@@ -460,7 +461,7 @@ int mbedtls_net_set_block( mbedtls_net_context *ctx )
     u_long n = 0;
     return( ioctlsocket( ctx->fd, FIONBIO, &n ) );
 #else
-    return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL ) & ~O_NONBLOCK ) );
+    return( syscall( SYS_fcntl, ctx->fd, F_SETFL, syscall(SYS_fcntl, ctx->fd, F_GETFL ) & ~O_NONBLOCK ) );
 #endif
 }
 
@@ -471,7 +472,7 @@ int mbedtls_net_set_nonblock( mbedtls_net_context *ctx )
     u_long n = 1;
     return( ioctlsocket( ctx->fd, FIONBIO, &n ) );
 #else
-    return( fcntl( ctx->fd, F_SETFL, fcntl( ctx->fd, F_GETFL ) | O_NONBLOCK ) );
+    return( syscall( SYS_fcntl, ctx->fd, F_SETFL, syscall( SYS_fcntl, ctx->fd, F_GETFL ) | O_NONBLOCK ) );
 #endif
 }
 

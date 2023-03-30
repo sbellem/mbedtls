@@ -51,6 +51,8 @@ SOEXT_TLS?=so.19
 SOEXT_X509?=so.4
 SOEXT_CRYPTO?=so.13
 
+SUFFIX ?=
+
 # Set AR_DASH= (empty string) to use an ar implementation that does not accept
 # the - prefix for command line options (e.g. llvm-ar)
 AR_DASH ?= -
@@ -199,10 +201,11 @@ else
 all: shared static
 endif
 
-static: libmbedcrypto.a libmbedx509.a libmbedtls.a
+static: libmbedcrypto$(SUFFIX).a libmbedx509$(SUFFIX).a libmbedtls$(SUFFIX).a
 	cd ../tests && echo "This is a seedfile that contains 64 bytes (65 on Windows)......" > seedfile
 
-shared: libmbedcrypto.$(DLEXT) libmbedx509.$(DLEXT) libmbedtls.$(DLEXT)
+shared: libmbedcrypto$(SUFFIX).$(DLEXT) libmbedx509$(SUFFIX).$(DLEXT) libmbedtls$(SUFFIX).$(DLEXT) \
+		libmbedcrypto$(SUFFIX).$(SOEXT_CRYPTO) libmbedx509$(SUFFIX).$(SOEXT_X509) libmbedtls$(SUFFIX).$(SOEXT_TLS)
 
 # Windows builds under Mingw can fail if make tries to create archives in the same
 # directory at the same time - see https://bugs.launchpad.net/gcc-arm-embedded/+bug/1848002.
@@ -213,7 +216,7 @@ libmbedx509.a: | libmbedcrypto.a
 endif
 
 # tls
-libmbedtls.a: $(OBJS_TLS)
+libmbedtls%.a: $(OBJS_TLS)
 	echo "  AR    $@"
 	$(AR) $(ARFLAGS) $@ $(OBJS_TLS)
 ifdef APPLE_BUILD
@@ -223,12 +226,12 @@ ifneq ($(APPLE_BUILD),0)
 endif
 endif
 
-libmbedtls.$(SOEXT_TLS): $(OBJS_TLS) libmbedx509.so
+libmbedtls%.$(SOEXT_TLS): $(OBJS_TLS) libmbedx509%.so
 	echo "  LD    $@"
-	$(CC) -shared -Wl,-soname,$@ -o $@ $(OBJS_TLS) -L. -lmbedx509 -lmbedcrypto $(LOCAL_LDFLAGS) $(LDFLAGS)
+	$(CC) -shared -Wl,-soname,$@ -o $@ $(OBJS_TLS) -L. -lmbedx509$(SUFFIX) -lmbedcrypto$(SUFFIX) $(LOCAL_LDFLAGS) $(LDFLAGS)
 
 ifneq ($(SOEXT_TLS),so)
-libmbedtls.so: libmbedtls.$(SOEXT_TLS)
+libmbedtls%.so: libmbedtls%.$(SOEXT_TLS)
 	echo "  LN    $@ -> $<"
 	ln -sf $< $@
 endif
@@ -242,7 +245,7 @@ libmbedtls.dll: $(OBJS_TLS) libmbedx509.dll
 	$(CC) -shared -Wl,-soname,$@ -Wl,--out-implib,$@.a -o $@ $(OBJS_TLS) -lws2_32 -lwinmm -lgdi32 -L. -lmbedx509 -lmbedcrypto -static-libgcc $(LOCAL_LDFLAGS) $(LDFLAGS)
 
 # x509
-libmbedx509.a: $(OBJS_X509)
+libmbedx509%.a: $(OBJS_X509)
 	echo "  AR    $@"
 	$(AR) $(ARFLAGS) $@ $(OBJS_X509)
 ifdef APPLE_BUILD
@@ -252,12 +255,12 @@ ifneq ($(APPLE_BUILD),0)
 endif
 endif
 
-libmbedx509.$(SOEXT_X509): $(OBJS_X509) libmbedcrypto.so
+libmbedx509%.$(SOEXT_X509): $(OBJS_X509) libmbedcrypto%.so
 	echo "  LD    $@"
-	$(CC) -shared -Wl,-soname,$@ -o $@ $(OBJS_X509) -L. -lmbedcrypto $(LOCAL_LDFLAGS) $(LDFLAGS)
+	$(CC) -shared -Wl,-soname,$@ -o $@ $(OBJS_X509) -L. -lmbedcrypto$(SUFFIX) $(LOCAL_LDFLAGS) $(LDFLAGS)
 
 ifneq ($(SOEXT_X509),so)
-libmbedx509.so: libmbedx509.$(SOEXT_X509)
+libmbedx509%.so: libmbedx509%.$(SOEXT_X509)
 	echo "  LN    $@ -> $<"
 	ln -sf $< $@
 endif
@@ -271,7 +274,7 @@ libmbedx509.dll: $(OBJS_X509) libmbedcrypto.dll
 	$(CC) -shared -Wl,-soname,$@ -Wl,--out-implib,$@.a -o $@ $(OBJS_X509) -lws2_32 -lwinmm -lgdi32 -L. -lmbedcrypto -static-libgcc $(LOCAL_LDFLAGS) $(LDFLAGS)
 
 # crypto
-libmbedcrypto.a: $(OBJS_CRYPTO)
+libmbedcrypto%.a: $(OBJS_CRYPTO)
 	echo "  AR    $@"
 	$(AR) $(ARFLAGS) $@ $(OBJS_CRYPTO)
 ifdef APPLE_BUILD
@@ -281,12 +284,12 @@ ifneq ($(APPLE_BUILD),0)
 endif
 endif
 
-libmbedcrypto.$(SOEXT_CRYPTO): $(OBJS_CRYPTO)
+libmbedcrypto%.$(SOEXT_CRYPTO): $(OBJS_CRYPTO)
 	echo "  LD    $@"
 	$(CC) -shared -Wl,-soname,$@ -o $@ $(OBJS_CRYPTO) $(LOCAL_LDFLAGS) $(LDFLAGS)
 
 ifneq ($(SOEXT_CRYPTO),so)
-libmbedcrypto.so: libmbedcrypto.$(SOEXT_CRYPTO)
+libmbedcrypto%.so: libmbedcrypto%.$(SOEXT_CRYPTO)
 	echo "  LN    $@ -> $<"
 	ln -sf $< $@
 endif

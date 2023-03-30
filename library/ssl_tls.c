@@ -4250,12 +4250,14 @@ int mbedtls_ssl_context_save( mbedtls_ssl_context *ssl,
         MBEDTLS_SSL_DEBUG_MSG( 1, ( "There is pending outgoing data" ) );
         return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
     }
+#if 0
     /* Protocol must be DTLS, not TLS */
     if( ssl->conf->transport != MBEDTLS_SSL_TRANSPORT_DATAGRAM )
     {
         MBEDTLS_SSL_DEBUG_MSG( 1, ( "Only DTLS is supported" ) );
         return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
     }
+#endif
     /* Version must be 1.2 */
     if( ssl->tls_version != MBEDTLS_SSL_VERSION_TLS1_2 )
     {
@@ -4401,6 +4403,16 @@ int mbedtls_ssl_context_save( mbedtls_ssl_context *ssl,
     }
 #endif /* MBEDTLS_SSL_ALPN */
 
+    if( ssl->conf->transport == MBEDTLS_SSL_TRANSPORT_STREAM )
+    {
+        used += 8;
+        if( used <= buf_len )
+        {
+            memcpy( p, ssl->in_ctr, 8 );
+            p += 8;
+        }
+    }
+
     /*
      * Done
      */
@@ -4411,7 +4423,19 @@ int mbedtls_ssl_context_save( mbedtls_ssl_context *ssl,
 
     MBEDTLS_SSL_DEBUG_BUF( 4, "saved context", buf, used );
 
+#if 0
+    /* At the moment of fork (when we call this function to serialize the TLS
+     * context and send to the child), we don't know (1) whether the child
+     * process will use it at all -- maybe both TLS endpoints will be used by
+     * the parent process, and (2) which TLS endpoint will be closed and which
+     * endpoint will be used. Thus, we must not reset the session since it may
+     * be continued to be used.
+     * Currently we are relying on the application to be "sane" and not use
+     * the same endpoint in two different processes. */
     return( mbedtls_ssl_session_reset_int( ssl, 0 ) );
+#else
+    return( 0 );
+#endif
 }
 
 /*
@@ -4449,7 +4473,10 @@ static int ssl_context_load( mbedtls_ssl_context *ssl,
      * We can't check that the config matches the initial one, but we can at
      * least check it matches the requirements for serializing.
      */
+#if 0
     if( ssl->conf->transport != MBEDTLS_SSL_TRANSPORT_DATAGRAM ||
+#else
+    if(
         ssl->conf->max_tls_version < MBEDTLS_SSL_VERSION_TLS1_2 ||
         ssl->conf->min_tls_version > MBEDTLS_SSL_VERSION_TLS1_2 ||
 #if defined(MBEDTLS_SSL_RENEGOTIATION)
@@ -4459,6 +4486,7 @@ static int ssl_context_load( mbedtls_ssl_context *ssl,
     {
         return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
     }
+#endif
 
     MBEDTLS_SSL_DEBUG_BUF( 4, "context to load", buf, len );
 
@@ -4669,6 +4697,15 @@ static int ssl_context_load( mbedtls_ssl_context *ssl,
 #if defined(MBEDTLS_SSL_PROTO_DTLS)
     ssl->in_epoch = 1;
 #endif
+
+    if( ssl->conf->transport == MBEDTLS_SSL_TRANSPORT_STREAM )
+    {
+        if( (size_t)( end - p ) < 8 )
+            return( MBEDTLS_ERR_SSL_BAD_INPUT_DATA );
+
+        memcpy( ssl->in_ctr, p, 8 );
+        p += 8;
+    }
 
     /* mbedtls_ssl_reset() leaves the handshake sub-structure allocated,
      * which we don't want - otherwise we'd end up freeing the wrong transform
